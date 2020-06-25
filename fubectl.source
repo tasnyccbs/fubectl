@@ -224,6 +224,18 @@ kfor() {
     kubectl port-forward -n $arg_pair
 }
 
+# [klabels] get labels
+klabels() {
+    local pod="$1"
+    if [ -z "$pod" ]; then
+        local arg_pair=$((printf "NAMESPACE NAME\n";kubectl get po -A --field-selector=metadata.namespace!=kube-system -ojsonpath='{range .items[*]}{@.metadata.namespace}{" "}{@.metadata.name}{"\n"}{end}')|column -t | _inline_fzf)
+        arg_pair="-n $arg_pair"
+    else
+        arg_pair=$pod
+    fi
+    kubectl get po $arg_pair -ojsonpath='{.metadata.labels}'|grep -Po "map\[\K.*(?=\])"|tr ':' '='|tr ' ' '\n'
+}
+
 # [ksearch] search for string in resources
 ksearch() {
     local search_query="$1"
