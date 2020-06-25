@@ -108,9 +108,9 @@ kcmd() {
     fi
     local ns="$(kubectl get ns | _inline_fzf | awk '{print $1}')"
     if [ -n "$cmd" ]; then
-        kubectl run shell-$RANDOM --namespace $ns --rm -i --tty --image ${image} -- /bin/sh -c "${cmd}"
+        kubectl run --generator=run-pod/v1 shell-$RANDOM --namespace $ns --rm -i --tty --image ${image} -- /bin/sh -c "${cmd}"
     else
-        kubectl run shell-$RANDOM --namespace $ns --rm -i --tty --image ${image} -- bash
+        kubectl run --generator=run-pod/v1 shell-$RANDOM --namespace $ns --rm -i --tty --image ${image} -- bash
     fi
 }
 
@@ -315,7 +315,7 @@ konsole() {
     }
 }
 '
-    kubectl run $name --namespace $ns --rm -it --image alpine --overrides="${overrides}"
+    kubectl run --generator=run-pod/v1 $name --namespace $ns --rm -it --image alpine --overrides="${overrides}"
 }
 
 kgpool() {
