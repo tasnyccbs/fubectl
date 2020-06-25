@@ -318,6 +318,27 @@ konsole() {
     kubectl run $name --namespace $ns --rm -it --image alpine --overrides="${overrides}"
 }
 
+kgpool() {
+    local project="$1"
+    [ -n "$project" ] && local ARGS="--project=$project"
+    local arg_pair=$((printf "CLUSTER LOCATION\n"; gcloud container clusters list --format='value(name, location)' $ARGS)|column -t|_inline_fzf)
+    # [ -z "$arg_pair" ] && printf "kfor: no pods found. no forwarding.\n" && return
+    arg_pair=$(echo $arg_pair|awk 'l=split($2,loc,"-") {if (l==3) {print $1, "--zone="$2} else {print $1, "--region="$2}}')
+    gcloud container node-pools list --cluster=$arg_pair --format='value(name)' $ARGS 
+}
+kgdes() {
+    local project="$1"
+    [ -n "$project" ] && local ARGS="--project=$project"
+    local arg_pair=$((printf "CLUSTER LOCATION\n"; gcloud container clusters list --format='value(name, location)' $ARGS)|column -t|_inline_fzf)
+    arg_pair=$(echo $arg_pair|awk 'l=split($2,loc,"-") {if (l==3) {print $1, "--zone="$2} else {print $1, "--region="$2}}')
+    local name=$((printf "POOL\n"; gcloud container node-pools list --cluster=$arg_pair --format='value(name)' $ARGS)|_inline_fzf)
+    gcloud container node-pools describe $name --cluster=$arg_pair $ARGS --format=yaml
+}
+kgcluster() {
+    local project="$1"
+     [ -n "$project" ] && local ARGS="--project=$project"
+    gcloud container clusters list $ARGS
+}
 # [ksec] decode a value from a secret
 ksec () {
     ns=$(kubectl get ns | _inline_fzf | awk '{print $1}')
