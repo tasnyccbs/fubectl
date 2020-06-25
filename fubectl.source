@@ -4,6 +4,27 @@ then
     setopt SH_WORD_SPLIT
 fi
 
+function completion_alias_wrapper() {
+    # ex: completion_alias_wrapper kgns 'get ns'
+    [[ "$#" == 2 ]] || return 1
+    local alias_name="$1"
+    local alias_arguments="$2"
+    local num_alias_arguments=$(echo "$alias_arguments" | wc -w)
+
+    local completion_function="__start_kubectl"
+
+    local wrapper_name="alias_completion::${alias_name}"
+    eval "
+    function ${wrapper_name}() {
+      let \"COMP_CWORD+=$num_alias_arguments\"
+      args=( \"${alias_arguments}\" )
+      COMP_WORDS=( kubectl \${args[@]} \${COMP_WORDS[@]:1} )
+      $completion_function
+      }
+    "
+    eval "complete -o default -F $wrapper_name $alias_name"
+}
+
 # helper functions
 alias _inline_fzf="fzf --multi --ansi -i -1 --height=50% --reverse -0 --header-lines=1 --inline-info --border"
 alias _inline_fzf_nh="fzf --multi --ansi -i -1 --height=50% --reverse -0 --inline-info --border"
@@ -16,10 +37,40 @@ _isClusterSpaceObject() {
     | grep -iq "\<${obj}\>"
 }
 # [k] like g for git but 233% as effective!
-alias k="kubectl"
+alias k="kubectl"; complete -o default -F __start_kubectl k
+
+# alias kg='k get'; completion_alias_wrapper kg 'get'
+alias kgns='k get ns'; completion_alias_wrapper kgns 'get ns'
+alias kl='k logs'; completion_alias_wrapper kl 'logs'
+alias kd='k describe'; completion_alias_wrapper kd 'describe'
+alias kdp='k describe po'; completion_alias_wrapper kdp 'describe po'
+alias kds='k describe svc'; completion_alias_wrapper kds 'describe svc'
+alias kgp='k get po'; completion_alias_wrapper kgp 'get po'
+alias kgpw='k get po -owide'; completion_alias_wrapper kgpw 'get po -owide'
+alias kgpa='kubectl get pods -A --field-selector=metadata.namespace!=kube-system -ojsonpath='"'"'{range .items[*]}{@.metadata.name}{" "}{@.metadata.namespace}{" "}{@.status.phase}{" "}{@.status.hostIP}{" "}{@.spec.nodeName}{"\n"}{end}'"'"'|column -t'
+alias kgpaw='kubectl get pods -A -owide --field-selector=metadata.namespace!=kube-system -ojsonpath='"'"'{range .items[*]}{@.metadata.name}{" "}{@.metadata.namespace}{" "}{@.status.phase}{" "}{@.status.hostIP}{" "}{@.spec.nodeName}{"\n"}{end}'"'"'|column -t'
+alias kgs='k get svc'; completion_alias_wrapper kgs 'get svc'
+alias kgd='k get deploy'; completion_alias_wrapper kgd 'get deploy'
+alias kgdy='k get deploy -oyaml --export'; completion_alias_wrapper kgdy 'get deploy'
+alias kge='k get ev'; completion_alias_wrapper kge 'get ev'
+alias kgew='k get ev -w'; completion_alias_wrapper kgew 'get ev -w'
+alias kgsec='k get secret'; completion_alias_wrapper kgsec 'get secret'
+alias kexec='k exec'; completion_alias_wrapper kexec 'exec'
+alias kgcm='k get cm'; completion_alias_wrapper kgcm 'get cm'
+alias kgj='k get jobs'; completion_alias_wrapper kgj 'get jobs'
+alias kgn='k get no'; completion_alias_wrapper kgn 'get no'
+alias ktn='k top no'; completion_alias_wrapper ktn 'top no'
+alias ktp='k top po'; completion_alias_wrapper ktp 'top po'
+#source <(kubectl completion bash | sed s/kubectl/k/g)
+alias krun='kubectl run --generator=run-pod/v1'; completion_alias_wrapper krun 'run' 
+export ex='-oyaml --export'
+alias k7='kubectl-v1.7'; completion_alias_wrapper k7 ''
+alias k8scon='kubectl get po -o=custom-columns=NAME:.metadata.name,CONTAINERS:.spec.containers[*].name'; completion_alias_wrapper k8scon 'get po'
+alias k8slogs='kubectl logs'; completion_alias_wrapper k8slogs 'logs'
+# alias kcontext="kubectl config view|grep '\- name:'"
 
 # [kw] kw get po,svc,md
-alias kw="watch kubectl get"
+alias kw="watch kubectl get"; completion_alias_wrapper kw get
 
 # [ka] get all pods in namespace
 alias ka="kubectl get pods"
@@ -28,14 +79,14 @@ alias ka="kubectl get pods"
 alias kall="kubectl get pods --all-namespaces"
 
 # [kwa] watch all pods in the current namespace
-alias kwa="watch kubectl get pods"
+alias kwa="watch kubectl get pods"; completion_alias_wrapper kwa 'get po'
 
 # [kwall] watch all pods in cluster
 alias kwall="watch kubectl get pods --all-namespaces"
 
 # TODO use "open" instead of "xdg-open" on a mac - also redirect xdg-open std{out,err} to /dev/null
 # [kp] open kubernetes dashboard with proxy
-alias kp="xdg-open 'http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/' & kubectl proxy"
+#alias kp="xdg-open 'http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/' & kubectl proxy"
 
 # [kwatch] watch resource
 kwatch() {
@@ -85,6 +136,7 @@ kget() {
         kubectl get "$kind" --all-namespaces | _inline_fzf | awk '{print $1, $2}' | xargs kubectl get -o yaml "$kind" -n
     fi
 }
+completion_alias_wrapper kget 'get'
 
 # [ked] edit a resource by its YAML
 ked() {
@@ -147,6 +199,7 @@ klog() {
     local container_choosen=$(echo "$containers_out" |  tr ' ' "\n" | _inline_fzf_nh)
     kubectl logs -n ${arg_pair} -c "${container_choosen}" --tail="${line_count}" "$@"
 }
+completion_alias_wrapper klog 'logs'
 
 # [kex] execute command in container
 kex() {
@@ -278,7 +331,7 @@ kinstall() {
 kupdate() {
     kubectl krew upgrade
 }
-
+unset completion_alias_wrapper
 # [khelp] show this help message
 khelp() {
     echo "Usage of fubectl"
