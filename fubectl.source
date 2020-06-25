@@ -93,16 +93,16 @@ kwatch() {
     local kind="$1"
     [ -z "$kind" ] && printf "kwatch: missing argument.\nUsage: kwatch RESOURCE\n" && return 255
     if _isClusterSpaceObject "$kind" ; then
-        kubectl get "${kind}" | _inline_fzf | awk '{print $1}' | xargs watch kubectl get "${kind}"
+        (printf "NAME\n";kubectl get "${kind}" --sort-by=.metadata.name -ojsonpath='{range .items[*]}{@.metadata.name}{"\n"}{end}')| _inline_fzf | xargs watch kubectl get "${kind}"
     else
-        kubectl get "${kind}" --all-namespaces | _inline_fzf | awk '{print $1, $2}' | xargs watch kubectl get "${kind}" -n
+        (printf "NAMESPACE NAME\n";kubectl get "${kind}" -A --field-selector=metadata.namespace!=kube-system -ojsonpath='{range .items[*]}{@.metadata.namespace}{" "}{@.metadata.name}{"\n"}{end}')|column -t| _inline_fzf | xargs watch kubectl get "${kind}" -n
     fi
 }
 
 # [kcmd] create a pod and execute a cmd/image (default bash/ubuntu) usage: "kcmd cmd" or "kcmd cmd image"
 kcmd() {
     local cmd="$1"
-    local image="ubuntu"
+    local image="debian:buster-slim"
     if [ -n "$2" ]; then
         image="$2"
     fi
@@ -131,9 +131,9 @@ kget() {
     local kind="$1"
     [ -z "$kind" ] && printf "kget: missing argument.\nUsage: kget RESOURCE\n" && return 255
     if _isClusterSpaceObject "$kind" ; then
-        kubectl get "$kind" | _inline_fzf | awk '{print $1}' | xargs kubectl get -o yaml "$kind"
+        (printf "NAME\n";kubectl get "$kind" --sort-by=.metadata.name -ojsonpath='{range .items[*]}{@.metadata.name}{"\n"}{end}')| _inline_fzf | xargs kubectl get -o yaml "$kind"
     else
-        kubectl get "$kind" --all-namespaces | _inline_fzf | awk '{print $1, $2}' | xargs kubectl get -o yaml "$kind" -n
+        (printf "NAMESPACE NAME\n";kubectl get "$kind" -A --sort-by=.metadata.namespace --field-selector=metadata.namespace!=kube-system -ojsonpath='{range .items[*]}{@.metadata.namespace}{" "}{@.metadata.name}{"\n"}{end}') |column -t| _inline_fzf | xargs kubectl get -o yaml "$kind" -n
     fi
 }
 completion_alias_wrapper kget 'get'
@@ -159,9 +159,9 @@ kdes() {
     local kind="$1"
     [ -z "$kind" ] && printf "kdes: missing argument.\nUsage: kdes RESOURCE\n" && return 255
     if _isClusterSpaceObject "$kind" ; then
-        kubectl get "$kind" | _inline_fzf | awk '{print $1}' | xargs kubectl describe "$kind"
+       (printf "NAME\n"; kubectl get "$kind" --sort-by=.metadata.name -ojsonpath='{range .items[*]}{@.metadata.name}{"\n"}{end}')| _inline_fzf | xargs kubectl describe "$kind"
     else
-        kubectl get "$kind" --all-namespaces | _inline_fzf | awk '{print $1, $2}' | xargs kubectl describe "$kind" -n
+        (printf "NAMESPACE NAME\n";kubectl get "$kind" -A --field-selector=metadata.namespace!=kube-system -ojsonpath='{range .items[*]}{@.metadata.namespace}{" "}{@.metadata.name}{"\n"}{end}')|column -t| _inline_fzf | xargs kubectl describe "$kind" -n
     fi
 }
 
@@ -170,9 +170,12 @@ kdel() {
     local kind="$1"
     [ -z "$kind" ] && printf "kdel: missing argument.\nUsage: kdel RESOURCE\n" && return 255
     if _isClusterSpaceObject "$kind" ; then
-        kubectl get "$kind" | _inline_fzf | awk '{print $1}' | xargs -p kubectl delete "$kind"
+        (printf "NAME\n";kubectl get "$kind" --sort-by=.metadata.name -ojsonpath='{range .items[*]}{@.metadata.name}{"\n"}{end}')| _inline_fzf | xargs -p kubectl delete "$kind"
     else
-        kubectl get "$kind" --all-namespaces | _inline_fzf | awk '{print $1, $2}' | xargs -p kubectl delete "$kind" -n
+        (printf "NAMESPACE NAME\n";kubectl get "$kind" -A --field-selector=metadata.namespace!=kube-system -ojsonpath='{range .items[*]}{@.metadata.namespace}{" "}{@.metadata.name}{"\n"}{end}') |column -t| _inline_fzf | xargs -p kubectl delete "$kind" -n
+        
+
+        # --sort-by=.metadata.creationTimestamp
     fi
 }
 
@@ -204,7 +207,7 @@ completion_alias_wrapper klog 'logs'
 # [kex] execute command in container
 kex() {
     [ -z "$1" ] && printf "kex: missing argument(s).\nUsage: kex COMMAND [arguments]\n" && return 255
-    local arg_pair=$(kubectl get po --all-namespaces | _inline_fzf | awk '{print $1, $2}')
+    local arg_pair=$((printf "NAMESPACE NAME\n";kubectl get po -A --field-selector=metadata.namespace!=kube-system -ojsonpath='{range .items[?(@.status.phase=="Running")]}{@.metadata.namespace}{" "}{@.metadata.name}{"\n"}{end}')|column -t | _inline_fzf)
     [ -z "$arg_pair" ] && printf "kex: no pods found. no execution.\n" && return
     local containers_out=$(echo "$arg_pair" | xargs kubectl get po -o=jsonpath='{.spec.containers[*].name}' -n)
     local container_choosen=$(echo "$containers_out" |  tr ' ' "\n" | _inline_fzf_nh)
@@ -214,10 +217,11 @@ kex() {
 # [kfor] port-forward a container port to your local machine
 kfor() {
     local port="$1"
-    [ -z "$port" ] && printf "kfor: missing argument.\nUsage: kfor PORT_TO_FORWARD\n" && return 255
-    local arg_pair="$(kubectl get po --all-namespaces | _inline_fzf | awk '{print $1, $2}')"
+    # [ -z "$port" ] && printf "kfor: missing argument.\nUsage: kfor PORT_TO_FORWARD\n" && return 255
+    local arg_pair=$((printf "NAMESPACE NAME PORT\n"; kubectl get po -A --field-selector=metadata.namespace!=kube-system -o go-template='{{range .items}}{{$name := .metadata.name}}{{$ns := .metadata.namespace}}{{range .spec.containers}}{{range .ports}}{{if eq .protocol "TCP"}}{{$ns}}{{" "}}{{$name}}{{" "}}{{.containerPort}}{{"\n"}}{{end}}{{end}}{{end}}{{end}}')|column -t|_inline_fzf)
     [ -z "$arg_pair" ] && printf "kfor: no pods found. no forwarding.\n" && return
-    kubectl port-forward -n $arg_pair "$port"
+    [ -n "$port" ] && arg_pair=$(echo $arg_pair|awk -v port=$port '{print $1, $2, port":"$3}')
+    kubectl port-forward -n $arg_pair
 }
 
 # [ksearch] search for string in resources
