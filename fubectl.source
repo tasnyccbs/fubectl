@@ -102,7 +102,7 @@ kwatch() {
 # [kcmd] create a pod and execute a cmd/image (default bash/ubuntu) usage: "kcmd cmd" or "kcmd cmd image"
 kcmd() {
     local cmd="$1"
-    local image="debian:buster-slim"
+    local image="msgongora/k8s-test:latest"
     if [ -n "$2" ]; then
         image="$2"
     fi
@@ -110,7 +110,7 @@ kcmd() {
     if [ -n "$cmd" ]; then
         kubectl run --generator=run-pod/v1 shell-$RANDOM --namespace $ns --rm -i --tty --image ${image} -- /bin/sh -c "${cmd}"
     else
-        kubectl run --generator=run-pod/v1 shell-$RANDOM --namespace $ns --rm -i --tty --image ${image} -- bash
+        kubectl run --generator=run-pod/v1 shell-$RANDOM --namespace $ns --rm -i --tty --image ${image} -- sh
     fi
 }
 
