@@ -402,5 +402,13 @@ khelp() {
         grep -E '^# \[.+\]' "${BASH_SOURCE[0]}"
     fi
 }
+# [htemplate] Render chart templates locally and display the output.
+htemplate() {
+    CHART=${1}
+    ARGS=${@:2}
+    TMP_DIR=$(mktemp -d -t htemp-XXXX)
+    helm fetch --untar --untardir ${TMP_DIR} ${CHART}
+    helm template ${ARGS} ${TMP_DIR}/*
+}
 
 # ex: ts=4:sw=4:ft=sh
