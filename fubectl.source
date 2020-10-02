@@ -71,7 +71,9 @@ alias ktp='k top po'; completion_wrapper ktp 'top po'
 #source <(kubectl completion bash | sed s/kubectl/k/g)
 alias krun='kubectl run --generator=run-pod/v1'; completion_wrapper krun 'run' 
 export _yx='-oyaml --export'
-alias kcont='kubectl get po -o=custom-columns=NAME:.metadata.name,CONTAINERS:.spec.containers[*].name'; completion_wrapper k8scon 'get po'
+
+# [kcontainers] List all pods and their containers
+alias kcontainers='kubectl get po -o=custom-columns=NAME:.metadata.name,CONTAINERS:.spec.containers[*].name'; completion_wrapper k8scon 'get po'
 
 # [kges] get sorted events
 kges() {
