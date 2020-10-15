@@ -181,7 +181,7 @@ kdes() {
     if _isClusterSpaceObject "$kind" ; then
        (printf "NAME\n"; kubectl get "$kind" --sort-by=.metadata.name -ojsonpath='{range .items[*]}{@.metadata.name}{"\n"}{end}')| _inline_fzf | xargs kubectl describe "$kind"
     else
-        (printf "NAMESPACE NAME\n";kubectl get "$kind" -A --field-selector=metadata.namespace!=kube-system -ojsonpath='{range .items[*]}{@.metadata.namespace}{" "}{@.metadata.name}{"\n"}{end}')|column -t| _inline_fzf | xargs kubectl describe "$kind" -n
+        (printf "NAMESPACE NAME STATUS\n";kubectl get "$kind" -A --field-selector=metadata.namespace!=kube-system -ojsonpath='{range .items[*]}{@.metadata.namespace}{" "}{@.metadata.name}{" "}{@.status.phase}{"\n"}{end}')|column -t| _inline_fzf | xargs kubectl describe "$kind" -n
     fi
 }
 
